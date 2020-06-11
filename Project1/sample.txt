@@ -1,0 +1,11 @@
+User,Book_1,Book_2,Book_3,Book_4,Book_5
+User_1,3,NA,4,4,3
+User_2,4,5,3,NA,2
+User_3,NA,3,3,3,3
+User_4,5,5,5,5,NA
+User_5,2,3,3,NA,4
+User_6,3,4,4,3,3
+User_7,2,2,NA,2,2
+User_8,3,NA,4,4,4
+User_9,2,3,3,NA,4
+User_10,3,NA,3,3,3
