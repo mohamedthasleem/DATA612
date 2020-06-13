@@ -1,0 +1,212 @@
+---
+title: |
+    | DATA 612 Project 1
+    | Global Baseline Predictors and RMSE
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "Jun 11, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    code_folding: hide
+---
+
+## Project 1
+
+<li>Briefly describe the recommender system that you’re going to build out from a businessperspective, e.g. “This system recommends data science books to readers.”</li>
+<li>Find a dataset, or build out your own toy dataset. As a minimum requirement for complexity,please include numeric ratings for at least five users, across at least five items, with some missingdata.
+</li><li>Load your data into (for example) an R or pandas dataframe, a Python dictionary or list of lists, (oranother data structure of your choosing). From there, create a user-item matrix.
+</li><li>If you choose to work with a large dataset, you’re encouraged to also create a small, relativelydense “user-item” matrix as a subset so that you can hand-verify your calculations.
+</li><li>Break your ratings into separate training and test datasets.
+</li><li>Using your training data, calculate the raw average (mean) rating for every user-item combination.
+</li><li>Calculate the RMSE for raw average for both your training data and your test data.
+</li><li>Using your training data, calculate the bias for each user and each item.
+</li><li>From the raw average, and the appropriate user and item biases, calculate the baseline predictorsfor every user-item combination.
+</li><li>Calculate the RMSE for the baseline predictors for both your training data and your test data.
+</li>Summarize your results.
+
+
+```{r project1, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+```
+
+### Data Processing
+
+Built a sample dataset with Users and Books, 10 on each and randomly assigned the values with some missing values NA
+
+```{r , message=FALSE, warning=FALSE}
+
+# random sample of 100 ratings
+set.seed(612)
+df <- matrix(sample(1:5, 100, replace = TRUE), nrow = 10)
+
+# sample dataset for splitting
+split_df <- sample(1:length(df), 10, replace = FALSE)
+
+# split the data into train_dfing dataset
+train_df <- df
+train_df[split_df] <- NA
+
+# split the data into train_dfing dataset
+test_df <- df
+test_df[-split_df] <- NA
+
+# create some missing values for both dataset
+set.seed(612)
+missing_df <- sample(1:length(df), 10, replace = FALSE)
+df[missing_df] <- NA
+train_df[missing_df] <- NA
+test_df[missing_df] <- NA
+
+# name of the books
+users <- c("User_1","User_2","User_3","User_4","User_5","User_6","User_7","User_8","User_9","User_10")
+rownames(df) <- users
+rownames(train_df) <- users
+rownames(test_df) <- users
+
+# name of the users
+colname <- c("Book_1","Book_2","Book_3","Book_4","Book_5","Book_6","Book_7","Book_8","Book_9","Book_10")
+colnames(df) <- colname
+colnames(train_df) <- colname
+colnames(test_df) <- colname
+
+# print the matrix
+kable(df,caption = "User-Book Ratings") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+
+```
+
+### Train Dataset
+
+Building a training dataset
+
+```{r , message=FALSE, warning=FALSE}
+kable(train_df,caption = "train_dfing Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### Test Dataset
+
+Builsing a test dataset
+
+```{r , message=FALSE, warning=FALSE}
+kable(test_df,caption = "test_df Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### User-Item Matrix
+
+Used replicate function to create an user-item matrix and finding the average
+
+```{r , message=FALSE, warning=FALSE}
+
+# raw average
+raw_avg <- round(mean(train_df, na.rm = TRUE), 2)
+
+# user-item matrix for raw avearge
+user_item <- matrix(replicate(100, raw_avg), 10)
+rownames(user_item) <- rownames(train_df)
+colnames(user_item) <- colnames(train_df)
+
+kable(user_item,caption = "User-Item Matrix") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+
+### User Bias
+
+Calculating bias for each user using rowMeans function
+
+```{r , message=FALSE, warning=FALSE}
+# bias for each user
+user_bias <- round((rowMeans(train_df, na.rm = TRUE) - raw_avg), 2)
+
+kable(user_bias,caption = "User Bias") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### Item Bias
+
+Calculating bias for each item using colMeans function
+
+```{r , message=FALSE, warning=FALSE}
+# bias for each item
+item_bias <- round((colMeans(train_df, na.rm = TRUE) - raw_avg), 2)
+
+kable(item_bias,caption = "Item Bias") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### Baseline Predictor
+
+Calculating baseline predictors for every user-item combination
+
+```{r , message=FALSE, warning=FALSE}
+# calculate every user-item biases combination
+com <- apply(expand.grid((as_tibble(user_bias))[[1]], (as_tibble(item_bias))[[1]]), 1, sum)
+
+# baseline predictors for every user-item combination
+baseline <- (replicate(100, raw_avg) + com)
+baseline <- matrix(baseline, 10)
+rownames(baseline) <- rownames(train_df)
+colnames(baseline) <- colnames(train_df)
+
+kable(baseline,caption = "Item Bias") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### RMSE Calculation
+
+Calculating RMSE for baseline predictors for training and testing data
+
+round((sqrt(mean((x - y)^2, na.rm = TRUE))), 2)
+
+```{r , message=FALSE, warning=FALSE}
+# function to calculate RMSE
+rmse <- function(x, y) {
+  round((sqrt(mean((x - y)^2, na.rm = TRUE))), 2)
+}
+
+# rmse for train_df dataset
+rmse1 <- rmse(train_df, raw_avg)
+
+# rmse for test_df dataset
+rmse2 <- rmse(test_df, raw_avg)
+
+# rmse for baseline predictors
+rmse3 <- rmse(test_df, baseline)
+rmse4 <- rmse(train_df, baseline)
+```
+
+### Summary
+
+```{r , message=FALSE, warning=FALSE}
+# summary of the result
+kable(cbind(rmse1, rmse2, rmse3, rmse4), col.names = rep(c("Train", "Test"), 2),caption = "Summary") %>%
+  add_header_above(c("Raw Average" = 2, "Baseline Predictor" = 2)) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") 
+```
+
