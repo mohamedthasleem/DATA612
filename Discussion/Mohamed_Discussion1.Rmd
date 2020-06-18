@@ -1,0 +1,73 @@
+---
+title: |
+    | DATA 612 Research Discussion 1
+author: "Mohamed Thasleem, Kalikul Zaman"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Recommender Systems
+
+### Principle
+
+Recommender systems aim to predict users’ interests and recommend product items that quite likely are interesting for them
+
+### Methods
+
+Recommender systems function with two kinds of information:
+
+Characteristic information. This is information about items (keywords, categories, etc.) and users (preferences, profiles, etc.).
+
+User-item interactions. This is information such as ratings, number of purchases, likes, etc.
+
+Based on this, we can distinguish between three algorithms used in recommender systems:
+
+<mark>Content-based</mark> (CB) systems, which use characteristic information.
+
+<mark>Collaborative filtering</mark> (CF) systems, which are based on user-item interactions.
+
+<mark>Hybrid systems</mark>, which combine both types of information with the aim of avoiding problems that are generated when working with just one kind.
+
+### Case Study1 - Spotify
+
+Possibly one of Spotify’s most innovative uses of AI and recommendation systems is their popular Discover Weekly playlist. Known as Release Radar, this algorithmically powered tool updates personal playlists on a weekly basis so that users won’t miss newly released music by artists they like.
+
+Discover Weekly works by looking at the 2 billion plus playlist created by users, each based on music fans’ individual tastes. Spotify then collates this information with the company’s own playlists and fills in the blanks by comparing a user’s listening habits to those of users with similar tastes. The approach also uses collaborative filtering in combination with deep learning to detect patterns within huge amount of data to improve weekly selections.
+
+The new recommendation system has helped Spotify increase its number of monthly users from 75 million to 100 million at a time, in spite of competition from rival streaming service Apple Music.
+
+
+### Case Study2 - Best Buy
+
+Another company utilizing RS to increase revenues and improve customer experience is Best Buy. The company’s strategy is based on query search and click data. Since 2015, Best Buy has used the information in an attempt to predict what customers are interested in.  The query-based and item-to-item system creates cluster models that allow the company to make customer recommendations.  
+
+Best Buy has been using its recommendation system for eCommerce since 2015. The system works by predicting what a customer is interested in based on their individual browsing and purchase data, The growth was attributes in part to the company’s improved recommendation system.
+
+
+### Types of Attacks
+
+More knowledge about system → More efficient attack
+
+<li>random attack generate profiles with random values (preferably with some typical ratings)</li>
+<li>average attack effective attack on memory-based systems (average ratings → many neighbors)</li>
+<li>bandwagon attack high rating for “blockbusters”, random values for others</li>
+<li>segment attack insert ratings only for items from specific segment</li>
+<li>special nuke attacks love/hate attack, reverse bandwagon</li>
+
+### Counter Measures
+
+Robust techniques: model based techniques (latent factors), additional information
+
+Increasing injection costs: Captcha, limited number ofaccounts for single IP address automated attack detection
+
+### Conclusion
+
+The huge volume of information flowing on the web has given rise to the need for information filtering techniques. Recommendation systems are effectively used to filter out excess information and to provide personalized services to users by employing sophisticated, well thought-out prediction algorithms. The Content-Based (CB) systems require explicit domain knowledge and heavy knowledge engineering. The CF only needs the ratings made by users to the items.
+
