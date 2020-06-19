@@ -1,0 +1,259 @@
+---
+title: |
+    | DATA 612 Project 2
+    | Content-Based and Collaborative Filtering
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "Jun 18, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Project 2
+
+This project is to perform analysis Content-Based and Collaborative Filtering on existing dataset of user-item ratings, I have picked MovieLens dataset for this analysis
+
+
+```{r project1, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(recommenderlab)
+library(ggplot2)
+library(DT)
+library(pander)
+library(Matrix)
+```
+
+### Data Exploration
+
+MovieLense Data is chosen to recommend the new / untried movies to users. We explore the the different algorithms IBCF and UBCF with Cosine similarity and compare for accuracy for evaluation.
+
+```{r , message=FALSE, warning=FALSE}
+data(MovieLense)
+MovieLense
+## visualize part of the matrix
+image(MovieLense[1:100,1:100])
+
+par(mfrow=c(1,2))
+## number of ratings per user
+hist(rowCounts(MovieLense))
+## number of ratings per movie
+hist(colCounts(MovieLense))
+
+## mean rating (averaged over users)
+mean(rowMeans(MovieLense))
+## available movie meta information
+moviemeta <- MovieLenseMeta
+kable(moviemeta,caption = "MovieLens Data") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+
+
+The dataset is huge and for this analysis, we have taken into consideration of those users who have rated at least 20 movies and those movies that are rated b atleast 50 users, Which will enable to perform some healthy baseline of recommendation.
+
+```{r , message=FALSE, warning=FALSE}
+movielense <- MovieLense
+# Extracting data tha comprises of at least 20 ratings per user and 50 ratings
+movielenseorig <- movielense
+movielense <- movielense[rowCounts(movielense) > 20, colCounts(movielense) > 50]
+minrowcnt <- min(rowCounts(movielense))
+nrow(movielense)
+ncol(movielense)
+```
+
+### Train and Test Dataset
+
+Partition the training and test dataset on 80-20 ratio.
+
+```{r , message=FALSE, warning=FALSE}
+set.seed(612)
+which_train <- sample(x = c(TRUE, FALSE), size = nrow(movielense), replace = TRUE, 
+    prob = c(0.8, 0.2))
+
+recc_data_train <- movielense[which_train, ]
+recc_data_test <- movielense[!which_train, ]
+```
+
+### Building Model 
+
+We have taken Item-Based Collaborative Filtering (ICBF) and User-Based Collaborative Filtering (UBCF) for analysis
+
+### Item-Based Collaborative Filtering (ICBF)
+
+Item Based collaborative filtering algorithm is applied with Cosine similarity to identify 25 neighbouring items wiht similar genre profile and base recommendations on that basis
+
+```{r , message=FALSE, warning=FALSE}
+# Find top 10 recomm movies with Item based collab filter
+recc_model1 <- Recommender(data = recc_data_train, method = "IBCF", parameter = list(k = 25, 
+    method = "Cosine"))
+recc_model1
+
+# Applying model to test
+num_rec <- 10  # Lets recommend top 5 movies to each of users
+
+recc_predicted1 <- predict(object = recc_model1, newdata = recc_data_test, n = num_rec)
+recc_predicted1
+
+recdf <- data.frame(user = sort(rep(1:length(recc_predicted1@items), recc_predicted1@n)), 
+    rating = unlist(recc_predicted1@ratings), index = unlist(recc_predicted1@items))
+```
+
+<mark>Recommendation from ICBF Model</mark>
+
+```{r , message=FALSE, warning=FALSE}
+recdf$title <- recc_predicted1@itemLabels[recdf$index]
+recdf$year <- moviemeta$year[recdf$index]
+#recdf <- recdf %>% group_by(user) %>% top_n(5, recdf$rating
+
+kable(recdf[recdf$user %in% (1:10), ],caption = "Recommendation from ICBF Model") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+
+mark>Recommendation from  ICBF Model with Period Context Added</mark>
+
+```{r , message=FALSE, warning=FALSE}
+recdfnew <- recdf[with(recdf, order(recdf$user, -recdf$year, -round(recdf$rating))), 
+    c(1, 2, 5, 4)]
+#recdfnew <- recdfnew %>% group_by(user) %>% top_n(5, recdfnew$year)
+kable(recdfnew[recdfnew$user %in% (1:10), ],caption = "Recommendation from  ICBF MOdel with Period Context") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### User-Based Collaborative Filtering (UBCF)
+
+UserBased collaborative filtering algorithm is applied with Cosine similarity to identify 25 neiighbouring users wiht similar profile and base recommendations on that basis
+
+```{r , message=FALSE, warning=FALSE}
+
+# Find top 10 recomm movies with Item based collab filter
+recc_model2 <- Recommender(data = recc_data_train, method = "UBCF", parameter = list(k = 25, 
+    method = "Cosine"))
+recc_model2
+
+# Applying model to test
+num_rec <- 10  # Lets recommend top 5 movies to each of users
+
+recc_predicted2 <- predict(object = recc_model2, newdata = recc_data_test, n = num_rec)
+recc_predicted2
+
+recdfub <- data.frame(user = sort(rep(1:length(recc_predicted2@items), recc_predicted2@n)), 
+    rating = unlist(recc_predicted2@ratings), index = unlist(recc_predicted2@items))
+```
+
+<mark>Recommendation from UBCF Model</mark>
+
+```{r , message=FALSE, warning=FALSE}
+recdfub$title <- recc_predicted2@itemLabels[recdfub$index]
+recdfub$year <- moviemeta$year[recdfub$index]
+#recdfub <- recdfub %>% group_by(user) %>% top_n(5, recdfub$rating)
+kable(recdfub[recdfub$user %in% (1:10), ],caption = "Recommendation from UBCF Model") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+
+<mark>Recommendation from UBCF Model with Period Context Added</mark>
+
+```{r , message=FALSE, warning=FALSE}
+recdfubnew <- recdfub[with(recdfub, order(recdfub$user, -recdfub$year, -round(recdfub$rating))), 
+    c(1, 2, 5, 4)]
+#recdfubnew <- recdfubnew %>% group_by(user) %>% top_n(5, recdfubnew$year)
+kable(recdfubnew[recdfubnew$user %in% (1:10), ],caption = "Recommendation from UBCF Model with Period Context Added") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+### Model Comparison and validation
+
+```{r , message=FALSE, warning=FALSE}
+# Since minrowcnt is 20 , we keep the itemto keep at 15
+set.seed(612)
+
+n_fold <- 10  # k value for k fold cross validation
+items_to_keep <- 15  # Items to consider in training set (less than min no of ratings )
+rating_threshold <- 3.5  # Considering a rating of 3.5 as good rating across all movies
+
+eval_sets <- evaluationScheme(data = movielense, method = "cross-validation", k = n_fold, 
+    given = items_to_keep, goodRating = rating_threshold)
+
+eval_sets
+
+evaltrain <- getData(eval_sets, "train")  # training set
+evalknown <- getData(eval_sets, "known")  # known test set
+evalunknown <- getData(eval_sets, "unknown")  # unknown test set
+
+# First, let's prepare the data for validation, as shown in the previous section.
+# Since #the k-fold is the most accurate approach, we will use it here:
+
+
+model_to_evaluate <- "IBCF"
+model_parameters <- list(method = "Cosine")
+model1_IBCF_cosine <- Recommender(data = evaltrain, method = model_to_evaluate, parameter = model_parameters)
+
+items_to_recommend <- 10
+
+model1_prediction <- predict(object = model1_IBCF_cosine, newdata = evalknown, n = items_to_recommend, 
+    type = "ratings")
+model1_predtop <- predict(object = model1_IBCF_cosine, newdata = evalknown, n = items_to_recommend, 
+    type = "topNList")
+model1_accuracy <- calcPredictionAccuracy(x = model1_prediction, data = evalunknown, 
+    byUser = FALSE)
+model1_accuracy
+
+model_to_evaluate <- "UBCF"
+model_parameters <- list(method = "cosine")
+model3_UBCF_cosine <- Recommender(data = evaltrain, method = model_to_evaluate, parameter = model_parameters)
+
+items_to_recommend <- 10
+
+model3_prediction <- predict(object = model3_UBCF_cosine, newdata = evalknown, n = items_to_recommend, 
+    type = "ratings")
+model3_predtop <- predict(object = model3_UBCF_cosine, newdata = evalknown, n = items_to_recommend, 
+    type = "topNList")
+model3_accuracy <- calcPredictionAccuracy(x = model3_prediction, data = evalunknown, 
+    byUser = FALSE)  # byUser =FALSE for model level performance metrics
+model3_accuracy
+
+# Evaluating different models, we can define a list with them We add random and
+# popular to the model methods of evaluation in this comparison
+models_to_evaluate <- list(IBCF_cos = list(name = "IBCF", param = list(method = "cosine")), 
+    UBCF_cos = list(name = "UBCF", param = list(method = "cosine")))
+
+# In order to evaluate the models properly, we need to test them, varying the
+# number of flavors , as follows
+n_recommendations <- c(1, 3, 5, 7, 10, 12, 15)
+
+list_results <- evaluate(x = eval_sets, method = models_to_evaluate, n = n_recommendations)
+
+plot(list_results, annotate = 1, legend = "topleft")
+title("ROC curve")
+
+plot(list_results, "prec/rec", annotate = 1, legend = "bottomright")
+title("Precision-recall")
+
+listerror <- evaluate(x = eval_sets, method = models_to_evaluate, type = "ratings")
+modelcomp <- as.data.frame(sapply(avg(listerror), rbind))
+modelcompnew <- as.data.frame(t(as.matrix(modelcomp)))
+colnames(modelcompnew) <- c("RMSE", "MSE", "MAE")
+pander(modelcompnew, caption = "Model Comparison Based On Varying Recommendation")
+```
+
+
