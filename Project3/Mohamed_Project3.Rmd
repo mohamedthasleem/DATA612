@@ -1,0 +1,212 @@
+---
+title: |
+    | DATA 612 Project 3
+    | Matrix Factorization methods
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "Jun 26, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Project 3
+
+The goal of this assignment is give you practice working with Matrix Factorization techniques. The task is implement a matrix factorization method-such as singular value decomposition (SVD) or Alternating Least Squares (ALS)-in the context of a recommender system.
+
+
+```{r project1, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(recommenderlab)
+library(ggplot2)
+library(DT)
+library(pander)
+library(Matrix)
+```
+
+### Data Exploration
+
+MovieLense Data is chosen to recommend the new / untried movies to users. We explore the Matrix Factorization techniques using SVD and ALS also compare the results.
+
+```{r , message=FALSE, warning=FALSE}
+data(MovieLense)
+MovieLense
+## visualize part of the matrix
+image(MovieLense[1:100,1:100])
+
+## mean rating (averaged over users)
+mean(rowMeans(MovieLense))
+## available movie meta information
+moviemeta <- MovieLenseMeta
+kable(moviemeta,caption = "MovieLens Data") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+
+Finding similarity for first 4 users using similarity function. Here are cacluating similarity using cosine distance.
+
+```{r , message=FALSE, warning=FALSE}
+similarity_users <- similarity(MovieLense[1:4, ], method ="cosine", which = "users")
+
+kable(as.matrix(similarity_users),caption = "User Similarity") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") 
+```
+
+
+
+### Recommendation Models
+
+Listing the various models present in recommender lab library
+
+```{r , message=FALSE, warning=FALSE}
+recommender_models <- recommenderRegistry$get_entries(dataType ="realRatingMatrix")
+
+kable(names(recommender_models),caption = "Recommender Models") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+#lapply(recommender_models, "[[", "description")
+```
+
+### Train and Test Dataset
+
+Creating a subset of dataset where each user have rated 50 movies and watched more than 100 times
+
+Partition the training and test dataset on 80-20 ratio.
+
+```{r , message=FALSE, warning=FALSE}
+ratings_movies <- MovieLense[rowCounts(MovieLense) > 50,colCounts(MovieLense) > 100] 
+ratings_movies
+
+which_train <- sample(x = c(TRUE, FALSE), size = nrow(ratings_movies),replace = TRUE, prob = c(0.8, 0.2))
+head(which_train)
+
+recc_data_train <- ratings_movies[which_train, ]
+recc_data_test <- ratings_movies[!which_train, ]
+```
+
+Checking SVD and ALS recommendation models and their applicable parameters
+
+```{r , message=FALSE, warning=FALSE}
+recommender_models <- recommenderRegistry$get_entries(dataType ="realRatingMatrix")
+recommender_models$ALS_realRatingMatrix$parameters
+
+recommender_models$SVD_realRatingMatrix$parameters
+
+```
+
+### Singular Value Decomposition (SVD)
+
+Recommender type SVD with realRatingMatrix algorithm method used to predict the recommendation
+
+```{r , message=FALSE, warning=FALSE}
+SVD.recc_model <- Recommender(data = recc_data_train, method = "SVD",parameter = list(k = 30))
+SVD.recc_model
+
+SVD.recc_predicted <- predict(object = SVD.recc_model, newdata = recc_data_test, n = 6)
+SVD.recc_predicted
+
+SVD.recc_predicted@items[[1]]
+
+```
+
+### Alternating Least Squares (ALS)
+
+Recommender type ALS with realRatingMatrix algorithm method used to predict the recommendation
+
+```{r , message=FALSE, warning=FALSE}
+ALS.recc_model <- Recommender(data = recc_data_train, method = "ALS")
+ALS.recc_model
+
+ALS.recc_predicted <- predict(object = ALS.recc_model, newdata = recc_data_test, n = 6)
+ALS.recc_predicted
+
+ALS.recc_predicted@items[[1]]
+
+```
+
+
+### Compare Models
+
+Evaluate and compare the SVD and ALS model recommendation
+
+```{r , message=FALSE, warning=FALSE}
+eval_sets <- evaluationScheme(ratings_movies, method = "split", train = .8, k=4, given = 4, goodRating=3)
+algorithms <- list("SVD" = list(name="SVD"), "ALS" = list(name="ALS"))
+
+results <- evaluate(eval_sets, algorithms, n = seq(10, 100, 10))
+
+```
+
+The true positive rate, also referred to sensitivity or recall, is used to measure the percentage of actual positives which are correctly identified.
+
+Let TP be true positives (samples correctly classified as positive), FN be false negatives (samples incorrectly classified as negative), FP be false positives (samples incorrectly classified as positive), and TN be true negatives (samples correctly classified as negative)
+
+Creating the confusion matrix to get the sensitivity
+
+<mark>SVD Confusion/Error Matrix</mark>
+
+```{r , message=FALSE, warning=FALSE}
+kable(head(getConfusionMatrix(results$SVD)[1]),caption = " SVD Confusion/Error Matrix") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+```
+
+<mark>ALS Confusion/Error Matrix</mark>
+
+```{r , message=FALSE, warning=FALSE}
+kable(head(getConfusionMatrix(results$ALS)[1]),caption = " ALS Confusion/Error Matrix") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+
+```
+
+
+
+```{r , message=FALSE, warning=FALSE}
+recommenderlab::plot(results, annotate = 1:4, legend="topleft")
+
+columns_to_sum_SVD <- c("TP", "FP", "FN", "TN")
+indices_summed_SVD <- Reduce("+", getConfusionMatrix(results$SVD))[, columns_to_sum_SVD]
+
+columns_to_sum_ALS <- c("TP", "FP", "FN", "TN")
+indices_summed_ALS <- Reduce("+", getConfusionMatrix(results$ALS))[, columns_to_sum_ALS]
+
+recommenderlab::plot(results, "prec/rec", annotate = TRUE, main = "Precision-recall")
+```
+
+```{r , message=FALSE, warning=FALSE}
+eval_recommender <- Recommender(data = getData(eval_sets, "train"),method = 'SVD')
+eval_prediction <- predict(object = eval_recommender, newdata =getData(eval_sets, "known"), n = 10, type = "ratings")
+eval_accuracy <- calcPredictionAccuracy(x = eval_prediction, data = getData(eval_sets, "unknown"), byUser =TRUE)
+
+kable(head(eval_accuracy),caption = "SVD Accuracy") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") 
+
+```
+
+```{r , message=FALSE, warning=FALSE}
+ALS_eval_recommender <- Recommender(data = getData(eval_sets, "train"),method = 'ALS',parameter = list( normalize=NULL, lambda=0.1, n_factors=200, n_iterations=10, seed = 1234, verbose = TRUE))
+
+ALS_eval_prediction <- predict(object = ALS_eval_recommender, newdata =getData(eval_sets, "known"), n = 10, type = "ratings")
+
+ALS_eval_accuracy <- calcPredictionAccuracy(x = ALS_eval_prediction, data = getData(eval_sets, "unknown"), byUser =TRUE)
+
+kable(head(ALS_eval_accuracy),caption = "ALS Accuracy") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") 
+```
+
+
+### Conclusion
+
+Using the MovieLense dataset of recommenderlab data package,both SVD and ALS method RMSE values appear to close to each other, Since the ALS evaluation has cost function and it is optimized with each iteration, the more number of iterations may result in better model optimization.
