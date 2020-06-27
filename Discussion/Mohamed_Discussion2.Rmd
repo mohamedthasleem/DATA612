@@ -1,0 +1,34 @@
+---
+title: |
+    | DATA 612 Research Discussion 2
+author: "Mohamed Thasleem, Kalikul Zaman"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Music Recommendation at Scale with Spark
+
+Spotify uses a range of Machine Learning models to power its music recommendation features including the Discover page and Radio. Due to the iterative nature of these models they are a natural fit to the Spark computation paradigm and suffer from the IO overhead incurred by Hadoop. Johnson  review 2 collaborative filtering models and how we've scaled them up to handle 100s of Billions of data points using Scala, Breeze, and Spark.
+
+### Most Insteresting
+
+There are many intersting information shared by Johnson, some of them in my prespective
+
+<li>One of the most common uses of big data is to predict what users want, Johnson explained on the intial obstacles faced and how spark is in place of rescue.</li>
+
+<li>How different players in market uses their recommendation system like Pandora uses music tagging and echonet have text analysis etc.</li>
+
+### Spotiy Uses ALS
+
+Spotify data consists entirely of interactions between users and artists songs, but has no user and artist information other than their names. We need an algorithm that would learn without access to either user or artist attributes. Collaborative filtering algorithms meet this criteria. Collaborative filtering would decide that two users may both like the same song because they play many other same songs. Deciding that two users might have similar music tastes because they are of the same age is not example that would come under this umbrella.
+
+Alternating least squares (ALS) recommender comes here. It is a type of matrix factorization model. It treat the user and product data as if it were a large matrix A, where an entry at row i and column j exists if user i has played artist j. A is sparse: owing to only a few off all possible user-artist combinations appearing in the data, most entries are 0. The matrix A can be factored as the matrix product of two smaller matrices X and Y. Both of them have many rows because A has many rows and columns, but just a few columns k. The columns correspond to the latent factors that are being used to explain the interaction data.
+
+ALS takes advantage of sparsity of the input data and relies on simple and optimized linear algebra. It's data parallel nature makes it very fast at a large scale
