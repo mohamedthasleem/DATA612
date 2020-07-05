@@ -1,0 +1,194 @@
+---
+title: |
+    | DATA 612 Project 4
+    | Accuracy and Beyond
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "July 5, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Introduction
+
+The goal of this assignment is give you practice working with accuracy and other recommender system metrics.    
+
+1. As in your previous assignments, compare the accuracy of at least two recommender system algorithms against your offline data.
+2. Implement support for at least one business or user experience goal such as increased serendipity, novelty, or diversity.
+3. Compare and report on any change in accuracy before and after you’ve made the change in #2.
+4. As part of your textual conclusion, discuss one or more additional experiments that could be performed and/or metrics that could be evaluated only if online evaluation was possible. Also, briefly propose how you would design a reasonable online evaluation environment. 
+
+```{r , message=FALSE, warning=FALSE}
+library(recommenderlab)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(devtools)
+library(tidyverse)
+library(tictoc)
+library(dplyr)
+library(stats)
+library(irlba)
+library(rsvd)
+```
+
+### Data Setup
+
+Jester5K data set - The data set contains a sample of 5000 users from the anonymous ratings data from the Jester Online Joke Recommender System collected between April 1999 and May 2003.
+
+https://rdrr.io/cran/recommenderlab/man/Jester5k.html
+
+```{r , message=FALSE, warning=FALSE}
+set.seed(612)
+data(Jester5k)
+jester_df <- as(Jester5k, 'data.frame')
+```
+
+### Data Exploration
+
+```{r , message=FALSE, warning=FALSE}
+#Dimension
+dim(Jester5k)
+jester_df$user <- as.numeric(jester_df$user)
+jester_df$item <- as.numeric(jester_df$item)
+summary(jester_df)
+
+#Vector
+vector_ratings <- as.vector(as.vector(Jester5k@data))
+head(as(Jester5k,"matrix")[,1:10])
+
+#Sparsity Check
+sparsity <- function(ratings){
+  nratings(ratings) / (dim(ratings)[1] * dim(ratings)[2])
+}
+sparsity(Jester5k)
+
+jester_orig <- as.matrix(Jester5k@data)
+length(jester_orig[jester_orig==0]) / (ncol(jester_orig)*nrow(jester_orig))
+
+# creating matrix replacing zeros with NAs
+jester_matrix <- jester_orig
+is.na(jester_matrix) <- jester_matrix == 0
+
+ratings_jester <- Jester5k[rowCounts(Jester5k) > 50, colCounts(Jester5k) > 100]
+ratings_jester
+```
+### Data Evaluation
+
+Creates an evaluationScheme object from a data set. The scheme can be a simple split into training and test data
+
+```{r , message=FALSE, warning=FALSE}
+#evaluation
+eval_sets <- evaluationScheme(data = ratings_jester, method = "cross-validation", k= 4, given = 30, goodRating = 3)
+eval_sets
+
+#train
+getData(eval_sets, "train")
+#known
+getData(eval_sets, "known")
+#unknown
+getData(eval_sets, "unknown")
+
+```
+
+
+### Model Comparison
+
+Comparing the difference models, Item Based Collaborative, User Based Collaborative Model filtering, SVD and RANDOM models chosen
+
+```{r , message=FALSE, warning=FALSE}
+eval1 <- list(
+  IBCF_cos = list(name = "IBCF", param = list(method="cosine")),
+  IBCF_pear = list(name = "IBCF", param = list(method="pearson")),
+  UBCF_cos = list(name = "UBCF", param = list(method="cosine")),
+  UBCF_pear = list(name = "UBCF", param = list(method="pearson")),
+  SVD = list(name = "SVD"),
+  random = list(name = "RANDOM")
+)
+
+inter1 <- evaluate(x = eval_sets, method = eval1, n= c(1, 5, seq(10, 100, 10)))
+
+```
+
+### Interpretation
+
+ROC Curves and Precision-Recall curves
+
+```{r , message=FALSE, warning=FALSE}
+par(mfrow=c(1,2))
+plot(inter1, annotate = 1, legend = "bottomright")
+title("ROC curve")
+
+plot(inter1, "prec/rec", annotate = 1, legend = "bottomright")
+title("Precision-Recall")
+
+```
+
+ROC Curves and Precision-Recall curves - Nearest Neighbors Threshold
+
+```{r , message=FALSE, warning=FALSE}
+eval2 <- lapply(c(5, 10, 20, 30, 40, 50, 60, 70, 80), function(k){
+  list(name = "UBCF", param = list(method = "pearson", nn=k))
+})
+
+names(eval2) <- paste0("UBCF_nn_", c(5, 10, 20, 30, 40, 50, 60, 70, 80))
+
+inter2 <- evaluate(x = eval_sets, method = eval2, n = c(1, 5, seq(10, 100, 10)))
+```
+
+```{r new1, message=FALSE, warning=FALSE}
+par(mfrow=c(1,2))
+plot(inter2, annotate = 1, legend = "bottomright")
+title("ROC Curve - UBCF")
+
+plot(inter2, "prec/rec", annotate = 1, legend = "bottomleft")
+title("Precision-Recall - UBCF")
+```
+
+RMSE Value
+
+```{r , message=FALSE, warning=FALSE}
+rmse1 <- Recommender(getData(eval_sets, "train"), "UBCF", parameter = list(method = "pearson", nn=20))
+prediction <- predict(rmse1, getData(eval_sets, "known"), type="ratings", n=10)
+
+calcPredictionAccuracy(prediction, getData(eval_sets, "unknown"))
+
+```
+
+### Serendipity
+
+Serendipity has been increasingly used in recommender systems, The term serendipity means a lucky finding or a satisfying surprise, We can add serendipity to recommend some jokes to users which are no part of the our nearest neighbors calculations. As expected the RMSE value has increased a bit.
+
+```{r , message=FALSE, warning=FALSE}
+set.seed(612)
+#random
+'%rand%' <- function(x,y){x + sample(c(1,-1),length(y),replace = TRUE) * y}
+Jester.random <-  Jester5k
+Jester.random@data@x<-sapply(Jester.random@data@x, function(x){x %rand% runif(1, 0, 2) })
+#eval train
+eval_sch <- evaluationScheme(Jester.random, method = "split",train = 0.8, given = 30, goodRating = 3, k=5)
+model2 <- Recommender(getData(eval_sch, "train"), "Popular")
+#predict
+rating1 <- Jester5k
+eval3 <- evaluationScheme(rating1, method="split", train=0.8, k=1, given=10, goodRating=1 )
+predict1 <- predict(model2, getData(eval3, "known"), type="ratings",n=10)
+predict1@data@x[predict1@data@x[] < -10] <- -10
+predict1@data@x[predict1@data@x[] > 10] <- 10
+#RMSE result
+calcPredictionAccuracy(predict1, getData(eval3, "unknown"))
+```
+
+
+### Online Evaluation
+
+In the search for a suitable recommendation algorithm, A methodology of evaluation is necessary in order to compare the results. Online experiments involve issuing recommendations and then querying the users about how they rate the items, but sometimes based on user behavior such as ignorance of giving review or lack of knowledge may result in incorrect results but Offline evaluations are the most common evaluation method for research paper recommender systems. However, no thorough discussion on the appropriateness of offline evaluations has taken place, despite some voiced criticism.
+
+
+
+
