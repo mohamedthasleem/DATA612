@@ -98,7 +98,7 @@ predict_time <- toc(quiet = TRUE)
 Training <- round(training_time$toc - training_time$tic, 2)
 Prediction <- round(predict_time$toc - predict_time$tic, 2)
 
-assess <-  data.frame(Method = "recommenderlab", Training = round(training_time$toc - training_time$tic, 5), Prediction = round(predict_time$toc - predict_time$tic, 2))
+assess <-  data.frame(Method = "recommenderlab", Training = round(training_time$toc - training_time$tic, 10), Prediction = round(predict_time$toc - predict_time$tic, 2))
 
 # Evaulate Accuracy
 eval_ALS <- calcPredictionAccuracy(predALS, getData(eval_scheme, "unknown"))
