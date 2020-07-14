@@ -1,0 +1,50 @@
+---
+title: |
+    | DATA 612 Research Discussion 3
+author: "Mohamed Thasleem, Kalikul Zaman"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Recommender System Biasing
+
+Recommender Systems (RSs) are widely used to help online users discover products, books, news, music, movies, courses, restaurants, etc. Because a traditional recommendation strategy always shows the most relevant items (thus with highest predicted rating), traditional RS’s are expected to make popular items become even more popular and non-popular items become even less popular which in turn further divides the haves (popular) from the have-nots (unpopular). Therefore, a major problem with RSs is that they may introduce biases affecting the exposure of items, thus creating a popularity divide of items during the feedback loop that occurs with users, and this may lead the RS to make increasingly biased recommendations over time. 
+
+Recommender systems can be a powerful tool for increasing reader engagement, and encouraging contribution, and filling knowledge gaps. However, recommender systems, like all machine-learning applications, have the potential to reflect and reinforce harmful biases. Sources of bias in machine learning applications can stem from a wide variety of sources, such as:
+
+<li>limitations in training data</li>
+<li>social and analytical assumptions of system developers</li>
+<li>technical limitations of software infrastructure, and</li>
+<li>evolving social norms</li>
+<br>
+In the pre-algorithm world, humans and organizations made decisions in hiring, advertising, criminal sentencing, and lending. These decisions were often governed by federal, state, and local laws that regulated the decision-making processes in terms of fairness, transparency, and equity. Today, some of these decisions are entirely made or influenced by machines whose scale and statistical rigor promise unprecedented efficiencies. Algorithms are harnessing volumes of macro- and micro-data to influence decisions affecting people in a range of tasks, from making movie recommendations to helping banks determine the creditworthiness of individuals.In machine learning, algorithms rely on multiple data sets, or training data, that specifies what the correct outputs are for some people or objects. From that training data, it then learns a model which can be applied to other people or objects and make predictions about what the correct outputs should be for them.
+
+However, because machines can treat similarly-situated people and objects differently, research is starting to reveal some troubling examples in which the reality of algorithmic decision-making falls short of our expectations. Given this, some algorithms run the risk of replicating and even amplifying human biases, particularly those affecting protected groups.
+
+## Prevent Unethical targeting
+
+A critical unethical is targeting privacy, The more personal data a recommender collects, the more accurate recommendations users can obtain. The user data collected by the recommender may include information about the users’ identity, demographic profile, behavioral data, purchase history, rating history, and more. Such information can be very privacy-sensitive
+For example, the demographic profile refers to demographic characteristics of the customer, such as age, gender, weight, and level of education; behavioral data refers to dynamic data of the customer, such as location, activity status, and browsing history; and rating history refers to the votes that the customer has provided on items. Providing such information to the recommender in the clear would pose undesirable privacy risks. For example, user data could be sold to a third party by the recommender without user consent, or could even be stolen by motivated attackers. Therefore, protecting user data in recommendation systems is of critical importance.
+
+### Directions to prevent unethical target
+
+<mark><strong>(1) Robustness against malicious users.</strong></mark> Most of the existing works on private personalized recommendation services assume that users honestly participate in the whole procedure
+
+<mark><strong>(2) Security against malicious recommendation.</strong></mark> An implicit assumption in most of the existing works on private recommendations is that the recommended items from the recommender are benign and will do no harm
+
+<mark><strong>(3) Mobile-oriented cost efficiency.</strong></mark> Along with the ubiquity of mobile devices, mobile personalized recommendation services are becoming increasingly prevalent. However, mobile devices are usually resource-constrained, especially in terms of battery and bandwidth. In order to achieve a satisfying user experience in mobile personalized recommendation services while preserving user privacy, a security design should impose lightweight cost on mobile devices. Therefore, it is worthwhile to continue the line of research of developing lightweight privacy-preserving techniques for mobile devices in recommendation services
+
+## Example
+
+An automated risk assessments used by U.S. judges to determine bail and sentencing limits can generate incorrect conclusions, resulting in large cumulative effects on certain groups, like longer prison sentences or higher bails imposed on people of color.
+
+In this example, the decision generates “bias,” a term that we define broadly as it relates to outcomes which are systematically less favorable to individuals within a particular group and where there is no relevant difference between groups that justifies such harms. Bias in algorithms can emanate from unrepresentative or incomplete training data or the reliance on flawed information that reflects historical inequalities. If left unchecked, biased algorithms can lead to decisions which can have a collective, disparate impact on certain groups of people even without the programmer’s intention to discriminate. The exploration of the intended and unintended consequences of algorithms is both necessary and timely, particularly since current public policies may not be sufficient to identify, mitigate, and remedy consumer impacts.
+
+With algorithms appearing in a variety of applications, we argue that operators and other concerned stakeholders must be diligent in proactively addressing factors which contribute to bias. Surfacing and responding to algorithmic bias upfront can potentially avert harmful impacts to users and heavy liabilities against the operators and creators of algorithms, including computer programmers, government, and industry leaders. These actors comprise the audience for the series of mitigation proposals to be presented in this paper because they either build, license, distribute, or are tasked with regulating or legislating algorithmic decision-making to reduce discriminatory intent or effects.
