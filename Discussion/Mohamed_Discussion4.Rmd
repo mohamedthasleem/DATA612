@@ -1,0 +1,57 @@
+---
+title: |
+    | DATA 612 Research Discussion 4
+author: "Mohamed Thasleem, Kalikul Zaman"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+## Mitigating the Harm of Recommender Systems
+
+Recommender systems have attracted researcher's attention since the early stage. They have been applied to a variety of fields (e.g. news, online multimedia, ecommerce, tourism and social network) to handle information overload and provide personalized services. In the early days, researchers focused on two-dimensional User - Item features. At that time, it's not as easy as nowadays to collect additional features, due to the limited computation resources and lack of knowledge.
+
+Later, researchers found that additional information can significantly enhance recommender systems. For example, demographic information can be used to mitigate cold start problem, temporal information can be applied to capture users' shifting interests, and location and social network information can be used not only to improve recommender systems but also to create new recommender systems. Many researchers have investigated how to integrate multiple features into the recommendation algorithms to provide better service.
+
+Recommender systems are prevalent decision aids in the electronic marketplace, and online recommendations significantly impact the decision-making process of many consumers. Recent studies show that online recommendations can manipulate not only consumers' preference ratings but also their willingness to pay for products [1,2]. For example, using multiple experiments with TV shows, jokes and songs, prior studies found evidence that a recommendation provided by an online system serves as an anchor when consumers form their preference for products, even at the time of consumption [1]. Furthermore, using the systempredicted ratings as a starting point and biasing them (by perturbing them up or down) to varying degrees, this anchoring effect was observed to be continuous, with the magnitude proportional to the size of the perturbation of the recommendation in both positive and negative directions - about 0.35-star effect for each 1-star perturbation on average across all users and items. Additionally, research found that recommendations displayed to participants significantly pulled their willingness to pay for items in the direction of the recommendation
+
+### Types Of Attacks
+
+<li>Random Attack: Random values for filler items, high and low ratings for target items.</li>
+<li>Average Attack: Profiles are generated such that the rating for filler items is the mean or average rating for that item across all the users in the database.</li>
+<li>Segment Attack: Segment attack model is to make inserted bots more similar to the segment market users - to push the item within the relevant community.</li>
+<li>Bandwagon attack: Profiles are generated such that besides giving high ratings to the target items, it also contains only high values for selected items and random values to some filler items .</li>
+<li>User Shifting: In these types of attacks we basically increment or decrement all ratings for a subset of items per attack profile by a constant amount so as to reduce the similarity between attack profiles.</li>
+<li>Mixed Attack: In Mixed Attack, attack is on the same target item but that attack is produced from different attack modules.</li>
+<li>Noise Injection: This type of attack is carried out by adding some noise to ratings according to a standard normal distribution multiplied by a constant, ??, which is used to govern the amount of noise to be added.</li>
+
+### Attack Strategies
+
+Product push and Product nuke attacks. The objectives of these attacks is to promote or demote the predictions that are made for targeted items, respectively. All attacks are implemented as follows. The attacker assumes a number of identities within the system being attacked, and creates a user profile for each identity. It is in this manner that attack data is inserted into a system - no other access to a system's database is assumed.
+
+There are two issues that attackers need to consider when building attack profiles. The first concerns the selection of items from which the profiles are constructed; the second relates to the ratings that are applied to the selected items.
+
+### Mitigation
+
+<strong>Use model-based or hybrid algorithms</strong>
+<li>More robust against profile injection attacks</li>
+<li>Accuracy comparable with accuracy of memory-based approaches</li>
+<li>Less vulnerable</li>
+
+<strong>Increase profile injection costs</strong>
+<li>Captchas</li>
+
+<strong>Use statistical attack detection methods</strong>
+<li>detect groups of users who collaborate to push/nuke items</li>
+<li>monitor development of ratings for an item</li>
+<li>changes in average rating</li>
+<li>changes in rating entropy</li>
+<li>time dependent metrics (bulk ratings)</li>
+<li>use machine learning methods to discriminate real from fake profiles</li>
+
