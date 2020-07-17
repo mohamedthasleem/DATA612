@@ -1,0 +1,556 @@
+---
+title: |
+    | DATA 612 - Final Project
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "Jul 16, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+## Introduction
+
+This project is to perform analysis Collaborative Filtering on existing MovieLens dataset of user-item ratings also analysing the prediction using spark ALS
+
+Collaborative filtering is a method of making automatic predictions (filtering) about the interests of a user by collecting preferences or taste information from many users (collaborating).
+
+Spark ALS CF,which users and products are described by a small set of latent factors that can be used to predict missing entries
+
+```{r libs, message=FALSE, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(recommenderlab)
+library(ggplot2)
+library(data.table)
+library(reshape2)
+library(DT)
+library(kableExtra)
+library(knitr)
+library(sparklyr)
+library(tictoc)
+```
+
+## Dataset
+
+MovieLens 1M movie ratings. Stable benchmark dataset. 1 million ratings from 6000 users on 4000 movies. Released 2/2003, The dataset can be downloaded from https://grouplens.org/datasets/movielens/1m/. This dataset is choosen for analysis
+
+```{r data_load}
+movies <- read.csv("movies.csv",stringsAsFactors=FALSE)
+ratings <- read.csv("ratings.csv",stringsAsFactors=FALSE)
+```
+
+### Data Exploration
+
+```{r, message=FALSE, warning=FALSE}
+summary(movies)
+summary(ratings)
+nrow(ratings)
+ratings %>% summarize(n_users = n_distinct(userId),n_movies = n_distinct(movieId))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+
+par(mfrow=c(2,2))
+ratings %>% 
+  count(movieId) %>% 
+  ggplot(aes(n)) + 
+  geom_histogram( bins=30, color = "red") +
+  scale_x_log10() + 
+  ggtitle("Movies") +
+  labs(subtitle  ="number of ratings by movieId", 
+       x="movieId" , 
+       y="number of ratings", 
+       caption ="source data : ratings set") +
+  theme(panel.border = element_rect(colour="black", fill=NA)) 
+  
+  
+  ratings %>% 
+  count(userId) %>% 
+  ggplot(aes(n)) + 
+  geom_histogram( bins=30, color = "gold") +
+  scale_x_log10() + 
+  ggtitle("Users") +
+  labs(subtitle ="number of ratings by UserId", 
+       x="userId" , 
+       y="number of ratings") +
+  theme(panel.border = element_rect(colour="black", fill=NA)) 
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+kable(head(ratings),caption = "Sample Ratings Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") 
+
+```
+
+```{r, message=FALSE, warning=FALSE}
+kable(head(movies),caption = "Sample Movies Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872")
+```
+### Data Wrangling
+
+Pre-processing of data for further model building, Seperating the genre of movies
+
+```{r, message=FALSE, warning=FALSE}
+genres <- as.data.frame(movies$genres, stringsAsFactors=FALSE)
+genres2 <- as.data.frame(tstrsplit(genres[,1], '[|]', 
+                                   type.convert=TRUE), 
+                         stringsAsFactors=FALSE)
+colnames(genres2) <- c(1:10)
+genre_list <- c("Action", "Adventure", "Animation", "Children", 
+                "Comedy", "Crime","Documentary", "Drama", "Fantasy",
+                "Film-Noir", "Horror", "Musical", "Mystery","Romance",
+                "Sci-Fi", "Thriller", "War", "Western") # we have 18 genres in total
+genre_matrix <- matrix(0,10330,18) #empty matrix, 10330=no of movies+1, 18=no of genres
+genre_matrix[1,] <- genre_list #set first row to genre list
+colnames(genre_matrix) <- genre_list #set column names to genre list
+#iterate through matrix
+for (i in 1:nrow(genres2)) {
+  for (c in 1:ncol(genres2)) {
+    genmat_col = which(genre_matrix[1,] == genres2[i,c])
+    genre_matrix[i+1,genmat_col] <- 1
+  }
+}
+#convert into dataframe
+genre_matrix2 <- as.data.frame(genre_matrix[-1,], stringsAsFactors=FALSE) #remove first row, which was the genre list
+for (c in 1:ncol(genre_matrix2)) {
+  genre_matrix2[,c] <- as.integer(genre_matrix2[,c])  #convert from characters to integers
+} 
+search_matrix <- cbind(movies[,1:2], genre_matrix2)
+
+kable(head(search_matrix),caption = "Sample Movies Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  row_spec(0, bold = T, color = "white", background = "#ea7872") %>%
+    scroll_box(width = "100%", height = "300px")
+```
+## Model Exploration
+
+IBCF and UBCF models are used comparison and performance
+
+Sparse Matrix Conversion
+
+```{r, message=FALSE, warning=FALSE}
+#Create ratings matrix. Rows = userId, Columns = movieId
+ratingmat <- dcast(ratings, userId~movieId, value.var = "rating", na.rm=FALSE)
+ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+#Convert rating matrix into a recommenderlab sparse matrix
+ratingmat <- as(ratingmat, "realRatingMatrix")
+ratingmat
+```
+
+
+Identifying the algorithms and recommendation model
+
+```{r, message=FALSE, warning=FALSE}
+recommender_models <- recommenderRegistry$get_entries(dataType = "realRatingMatrix")
+names(recommender_models)
+lapply(recommender_models, "[[", "description")
+
+recommender_models$IBCF_realRatingMatrix$parameters
+recommender_models$UBCF_realRatingMatrix$parameters
+
+similarity_users <- similarity(ratingmat[1:4, ], 
+                               method = "cosine", 
+                               which = "users")
+par(mfrow=c(1,2))
+as.matrix(similarity_users)
+image(as.matrix(similarity_users), main = "User similarity")
+
+similarity_items <- similarity(ratingmat[, 1:4], method =
+                                 "cosine", which = "items")
+as.matrix(similarity_items)
+image(as.matrix(similarity_items), main = "Movies similarity")
+
+```
+
+### Data Distribution
+
+```{r, message=FALSE, warning=FALSE}
+vector_ratings <- as.vector(ratingmat@data)
+unique(vector_ratings) # what are unique values of ratings
+table_ratings <- table(vector_ratings) # what is the count of each rating value
+vector_ratings <- vector_ratings[vector_ratings != 0] # rating == 0 are NA values
+vector_ratings <- factor(vector_ratings)
+par(mfrow=c(1,2))
+qplot(vector_ratings) + 
+  ggtitle("Distribution of the vector ratings")+
+  theme(plot.title = element_text(hjust = 0.5))
+image(ratingmat[1:20, 1:25], main = "Heatmap of the first 20 rows and 25 columns")
+
+```
+### Data Setup
+
+Defining the minimum number of users per rated movie as 50 and the minimum views number per movie as 50
+
+```{r, message=FALSE, warning=FALSE}
+ratings_movies <- ratingmat[rowCounts(ratingmat) > 50,
+                             colCounts(ratingmat) > 50]
+ratings_movies_norm <- normalize(ratings_movies)
+```
+
+## Collaborative Filtering Model
+
+We will be exploring the Item-based and User-based collaborative filtering model
+
+## Item-based Collaborative Filtering
+
+Item-item collaborative filtering, or item-based, or item-to-item, is a form of collaborative filtering for recommender systems based on the similarity between items calculated using people's ratings of those items
+
+Defining training/test datasets as below
+
+```{r, message=FALSE, warning=FALSE}
+which_train <- sample(x = c(TRUE, FALSE), 
+                      size = nrow(ratings_movies),
+                      replace = TRUE, 
+                      prob = c(0.8, 0.2))
+recc_data_train <- ratings_movies[which_train, ]
+recc_data_test <- ratings_movies[!which_train, ]
+```
+
+### Building the IBCF model
+
+```{r, message=FALSE, warning=FALSE}
+recommender_models <- recommenderRegistry$get_entries(dataType ="realRatingMatrix")
+recommender_models$IBCF_realRatingMatrix$parameters
+recc_model <- Recommender(data = recc_data_train, 
+                          method = "IBCF",
+                          parameter = list(k = 30))
+recc_model
+class(recc_model)
+
+model_details <- getModel(recc_model)
+class(model_details$sim) # this contains a similarity matrix
+dim(model_details$sim)
+n_items_top <- 20
+image(model_details$sim[1:n_items_top, 1:n_items_top],
+      main = "Heatmap of the first rows and columns")
+row_sums <- rowSums(model_details$sim > 0)
+table(row_sums)
+col_sums <- colSums(model_details$sim > 0)
+qplot(col_sums) + stat_bin(binwidth = 1) + ggtitle("Distribution of the column count")
+
+n_recommended <- 10 # the number of items to recommend to each user
+recc_predicted <- predict(object = recc_model, 
+                          newdata = recc_data_test, 
+                          n = n_recommended)
+recc_predicted
+
+recc_user_1 <- recc_predicted@items[[1]] # recommendation for the first user
+movies_user_1 <- recc_predicted@itemLabels[recc_user_1]
+movies_user_2 <- movies_user_1
+for (i in 1:10){
+  movies_user_2[i] <- as.character(subset(movies, 
+                                         movies$movieId == movies_user_1[i])$title)
+}
+movies_user_2
+
+recc_matrix <- sapply(recc_predicted@items, 
+                      function(x){ as.integer(colnames(ratings_movies)[x]) }) # matrix with the recommendations for each user
+#dim(recc_matrix)
+recc_matrix[,1:4]
+
+number_of_items <- factor(table(recc_matrix))
+chart_title <- "Distribution of the number of items for IBCF"
+qplot(number_of_items) + ggtitle(chart_title)
+number_of_items_sorted <- sort(number_of_items, decreasing = TRUE)
+number_of_items_top <- head(number_of_items_sorted, n = 4)
+table_top <- data.frame(as.integer(names(number_of_items_top)),
+                       number_of_items_top)
+for (i in 1:4){
+  table_top[i,1] <- as.character(subset(movies, 
+                                         movies$movieId == table_top[i,1])$title)
+}
+colnames(table_top) <- c("Movie title", "No of items")
+head(table_top)
+```
+
+IBCF recommends items on the basis of the similarity matrix, Item-item models resolve these problems in systems that have more users than items. Item-item models use rating distributions per item, not per user. With more users than items, each item tends to have more ratings than each user, so an item's average rating usually doesn't change quickly. This leads to more stable rating distributions in the model, so the model doesn't have to be rebuilt as often. When users consume and then rate an item, that item's similar items are picked from the existing system model and added to the user's recommendation
+
+## User-based Collaborative Filtering Model
+
+The main idea behind UB-CF is that people with similar characteristics share similar taste. The method identifies users that are similar to the queried user and estimate the desired rating to be the weighted average of the ratings of these similar users
+
+### Building the UBCF model
+
+```{r, message=FALSE, warning=FALSE}
+recommender_models <- recommenderRegistry$get_entries(dataType ="realRatingMatrix")
+recommender_models$UBCF_realRatingMatrix$parameters
+recc_model <- Recommender(data = recc_data_train, method = "UBCF")
+recc_model
+model_details <- getModel(recc_model)
+#names(model_details)
+model_details$data
+
+n_recommended <- 10
+recc_predicted <- predict(object = recc_model,
+                          newdata = recc_data_test, 
+                          n = n_recommended) 
+recc_predicted
+
+recc_matrix <- sapply(recc_predicted@items, 
+                      function(x){ as.integer(colnames(ratings_movies)[x]) })
+#dim(recc_matrix)
+recc_matrix[, 1:4]
+
+number_of_items <- factor(table(recc_matrix))
+chart_title <- "Distribution of the number of items for UBCF"
+qplot(number_of_items) + ggtitle(chart_title)
+
+number_of_items_sorted <- sort(number_of_items, decreasing = TRUE)
+number_of_items_top <- head(number_of_items_sorted, n = 4)
+table_top <- data.frame(as.integer(names(number_of_items_top)), number_of_items_top)
+for (i in 1:4){
+  table_top[i,1] <- as.character(subset(movies, 
+                                         movies$movieId == table_top[i,1])$title)
+}
+colnames(table_top) <- c("Movie title", "No of items")
+head(table_top)
+
+```
+
+
+It looks like UBCF's accuracy is proven to be slightly more accurate than IBCF
+
+
+## Evaluation of model
+
+
+```{r, message=FALSE, warning=FALSE}
+percentage_training <- 0.8
+
+min(rowCounts(ratings_movies)) 
+items_to_keep <- 5 #number of items to generate recommendations
+rating_threshold <- 3 # threshold with the minimum rating that is considered good
+n_eval <- 1 #number of times to run evaluation
+eval_sets <- evaluationScheme(data = ratings_movies, 
+                              method = "split",
+                              train = percentage_training, 
+                              given = items_to_keep, 
+                              goodRating = rating_threshold, 
+                              k = n_eval) 
+eval_sets
+getData(eval_sets, "train") # training set
+getData(eval_sets, "known") # set with the items used to build the recommendations
+getData(eval_sets, "unknown") # set with the items used to test the recommendations
+
+# Bootstrapping the data
+
+#Bootrstrapping is another approach to split the data. The same user can be sampled more than once and, if the training set has the same size as it did earlier, there will be more users in the test set.
+
+eval_sets <- evaluationScheme(data = ratings_movies, 
+                              method = "bootstrap", 
+                              train = percentage_training, 
+                              given = items_to_keep,
+                              goodRating = rating_threshold, 
+                              k = n_eval)
+table_train <- table(eval_sets@runsTrain[[1]])
+n_repetitions <- factor(as.vector(table_train))
+
+# Using cross-validation to validate models
+
+#The k-fold cross-validation approach is the most accurate one, we split the data into some chunks, take a chunk out as the test set, and evaluate the accuracy. Then, we can do the same with each other chunk and compute the average accuracy.
+
+n_fold <- 4
+eval_sets <- evaluationScheme(data = ratings_movies, 
+                              method = "cross-validation",
+                              k = n_fold, 
+                              given = items_to_keep, 
+                              goodRating = rating_threshold)
+
+## Evaluating the ratings
+
+#k-fold approach has been picked for evaluation
+
+eval_sets <- evaluationScheme(data = ratings_movies, 
+                              method = "cross-validation",
+                              k = n_fold, 
+                              given = items_to_keep, 
+                              goodRating = rating_threshold)
+model_to_evaluate <- "IBCF"
+model_parameters <- NULL
+eval_recommender <- Recommender(data = getData(eval_sets, "train"),
+                                method = model_to_evaluate, 
+                                parameter = model_parameters)
+items_to_recommend <- 10
+eval_prediction <- predict(object = eval_recommender, 
+                           newdata = getData(eval_sets, "known"), 
+                           n = items_to_recommend, 
+                           type = "ratings")
+
+eval_accuracy <- calcPredictionAccuracy(x = eval_prediction, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser = TRUE)
+```
+
+### Accuracy Measures
+
+```{r, message=FALSE, warning=FALSE}
+eval_accuracy <- calcPredictionAccuracy(x = eval_prediction, 
+                                        data = getData(eval_sets, "unknown"), 
+                                        byUser = FALSE) 
+eval_accuracy
+```
+
+The measures of accuracy are useful to compare the performance of different models on the same data.
+
+## Probability thresholds
+
+Comparing the recommendations with the views having a positive rating.
+
+```{r, message=FALSE, warning=FALSE}
+results <- evaluate(x = eval_sets, 
+                    method = model_to_evaluate, 
+                    n = seq(10, 100, 10))
+head(getConfusionMatrix(results)[[1]])
+
+columns_to_sum <- c("TP", "FP", "FN", "TN")
+indices_summed <- Reduce("+", getConfusionMatrix(results))[, columns_to_sum]
+head(indices_summed)
+
+plot(results, annotate = TRUE, main = "ROC curve")
+plot(results, "prec/rec", annotate = TRUE, main = "Precision-recall")
+```
+
+If a small percentage of rated movies is recommended, the precision decreases. On the other hand, the higher percentage of rated movies is recommended the higher is the recall.
+
+## Comparing models
+
+The following models are considered for comparison
+
+* Item-based collaborative filtering, using the Cosine as the distance function
+* Item-based collaborative filtering, using the Pearson correlation as the distance function
+* User-based collaborative filtering, using the Cosine as the distance function
+* User-based collaborative filtering, using the Pearson correlation as the distance function
+* Random recommendations to have a base line
+
+```{r, message=FALSE, warning=FALSE}
+models_to_evaluate <- list(
+IBCF_cos = list(name = "IBCF", 
+                param = list(method = "cosine")),
+IBCF_cor = list(name = "IBCF", 
+                param = list(method = "pearson")),
+UBCF_cos = list(name = "UBCF", 
+                param = list(method = "cosine")),
+UBCF_cor = list(name = "UBCF", 
+                param = list(method = "pearson")),
+random = list(name = "RANDOM", param=NULL)
+)
+
+n_recommendations <- c(1, 5, seq(10, 100, 10))
+list_results <- evaluate(x = eval_sets, 
+                         method = models_to_evaluate, 
+                         n = n_recommendations)
+sapply(list_results, class) == "evaluationResults"
+
+avg_matrices <- lapply(list_results, avg)
+head(avg_matrices$IBCF_cos[, 5:8])
+```
+
+## Ideal model
+
+Comparing the chart will give oppurtunity to pick the ideal model
+
+```{r, message=FALSE, warning=FALSE}
+plot(list_results, annotate = 1, legend = "topleft") 
+title("ROC curve")
+plot(list_results, "prec/rec", annotate = 1, legend = "bottomright")
+title("Precision-recall")
+```
+
+The graph shows that,UBCF with cosine distance is best performing model
+
+## Spark Implementation
+
+Building an Alternating Least Squares (ALS) using Spark ML and predict the ratings
+
+```{r, message=FALSE, warning=FALSE}
+# connect to spark
+config <- spark_config()
+config$`sparklyr.shell.driver-memory` <- "8G"
+config$`sparklyr.shell.executor-memory` <- "8G"
+
+# The memory limit could not be configured on my low resouce laptop.
+sc <- spark_connect(master = "local", config = config)
+
+#Assign the dataset to Spark
+spark_df <- ratings
+
+#Building Train and Test dataset
+train <- sample(x = c(TRUE, FALSE), size = nrow(spark_df),
+                      replace = TRUE, prob = c(0.8, 0.2))
+train_df <- spark_df[train, ]
+test_df <- spark_df[!train, ]
+
+#Copy function to Spark
+spark_train <- sdf_copy_to(sc, train_df, "train_ratings", overwrite = TRUE)
+spark_test <- sdf_copy_to(sc, test_df, "test_ratings", overwrite = TRUE)
+
+
+sparkALS <- ml_als(spark_train, max_iter = 5, nonnegative = TRUE, 
+                   rating_col = "rating", user_col = "userId", item_col = "movieId")
+
+sparkPred <- sparkALS$.jobj %>%
+  invoke("transform", spark_dataframe(spark_test)) %>% collect()
+
+
+
+sparkPred <- sparkPred[!is.na(sparkPred$prediction), ] 
+
+#Calculate error
+mse_spark <- mean((sparkPred$rating - sparkPred$prediction)^2)
+rmse_spark <- sqrt(mse_spark)
+mae_spark <- mean(abs(sparkPred$rating - sparkPred$prediction))
+
+# disconnect from spark
+spark_disconnect(sc)
+
+```
+
+### Spark Accuracy Measures
+
+```{r, message=FALSE, warning=FALSE}
+
+spark_pred_datatable <- rename(sparkPred, c("spark_prediction"="prediction"))
+spark_pred_datatable <- subset(spark_pred_datatable, select=c(userId,movieId,rating,spark_prediction)) 
+
+spark_error <- data.frame(RMSE = rmse_spark, MSE = mse_spark, MAE = mae_spark)
+spark_error
+```
+
+### Spark Prediction
+
+```{r, message=FALSE, warning=FALSE}
+datatable(spark_pred_datatable, rownames = FALSE, filter="top", options = list(pageLength = 5, scrollX=T) )
+```
+
+
+## Summary
+
+* Analysis made on Collaborative filtering model using IBCF and UBCF for MovieLens dataset, the result shows that UBCF with cosine is the best performer.
+* ALS model is spark has predicted closely to the rating given MovieLens dataset.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
