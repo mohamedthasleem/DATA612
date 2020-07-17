@@ -1,0 +1,61 @@
+---
+title: |
+    | DATA 612 - Final Project Planning Document
+author: "Mohamed Thasleem, Kalikul Zaman"
+date: "Jul 16, 2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: united
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+## Project Plan
+
+MovieLens 1M movie ratings. Stable benchmark dataset. 1 million ratings from 6000 users on 4000 movies. Released 2/2003, The dataset can be downloaded from https://grouplens.org/datasets/movielens/1m/. This dataset is choosen for analysis
+
+I will be performing analysis Collaborative Filtering on existing MovieLens dataset of user-item ratings also analysing the prediction using spark ALS
+
+* Collaborative filtering is a method of making automatic predictions (filtering) about the interests of a user by collecting preferences or taste information from many users (collaborating).
+
+* Spark ALS CF,which users and products are described by a small set of latent factors that can be used to predict missing entries
+
+## Data Exploration
+
+Study the data, perform some pre-processing such Sparse Matrix Conversionon  data for further model building, Separating the genre of movies etc
+
+## Building Model (Collaborative Filtering Model)
+
+* IBCF and UBCF models are used comparison and performance
+
+* Identifying the algorithms and recommendation model
+* Evaluation of model
+* Calculate Accuracy measures
+* Identifying the Probability thresholds ROC/Presicion Recall
+* Comparison of model and picking the ideal one (which is best one? IBCF or UBCF)
+
+## Spark Implementation
+
+* Building an Alternating Least Squares (ALS) using Spark ML and predict the ratings
+* Calculate Spark Accuracy Measures
+* Generate report on Spark Prediction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
